@@ -7,11 +7,12 @@ import os
 import logging
 from contextlib import asynccontextmanager
 
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
-from fastapi import FastAPI
+from aiogram.filters import CommandStart
+from aiogram.types import Update
+from fastapi import FastAPI, Request
 from dotenv import load_dotenv
 
 from handlers import games
@@ -32,7 +33,7 @@ dp = Dispatcher()
 
 
 # ─── Start handler ───────────────────────────────────────────────
-@dp.message_command("start")
+@dp.message(CommandStart())
 async def cmd_start(message):
     await message.answer(
         "🎮 <b>Добро пожаловать в Игровой Бот!</b>\n\n"
@@ -72,8 +73,12 @@ async def health():
     return {"status": "healthy"}
 
 
-# Mount aiogram webhook
-setup_application(app, WEBHOOK_PATH, dispatcher=dp, bot=bot)
+@app.post(WEBHOOK_PATH)
+async def webhook_handler(request: Request):
+    data = await request.json()
+    update = Update.model_validate(data)
+    await dp.feed_update(bot=bot, update=update)
+    return {"ok": True}
 
 
 if __name__ == "__main__":
